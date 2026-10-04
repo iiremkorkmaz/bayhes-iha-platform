@@ -607,6 +607,438 @@ legend {
   font-size: 0.84rem;
 }
 
+.takeoff-assistant {
+  display: grid;
+  gap: 1rem;
+}
+
+.takeoff-intro {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.takeoff-intro > p {
+  max-width: 920px;
+  margin-bottom: 0;
+}
+
+.takeoff-disclaimer {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid rgba(246, 168, 68, 0.42);
+  border-radius: 8px;
+  color: #ffe8c7;
+  background: rgba(246, 168, 68, 0.1);
+}
+
+.takeoff-disclaimer svg {
+  color: var(--orange);
+}
+
+.takeoff-disclaimer span {
+  color: #d9cbb8;
+}
+
+.takeoff-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.takeoff-inputs,
+.takeoff-results {
+  display: grid;
+  gap: 1rem;
+}
+
+.takeoff-results {
+  position: sticky;
+  top: 1rem;
+}
+
+.takeoff-card {
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1rem;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(18px);
+}
+
+.takeoff-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.9rem;
+  color: var(--cyan);
+}
+
+.takeoff-card__header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.takeoff-card__index {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  background: rgba(66, 214, 255, 0.08);
+}
+
+.takeoff-form-grid,
+.takeoff-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.takeoff-field {
+  display: grid;
+  gap: 0.38rem;
+  min-width: 0;
+}
+
+.takeoff-field > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: #d8e3e8;
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.takeoff-field small {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.takeoff-field input,
+.takeoff-field select {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 0 0.65rem;
+  color: var(--text);
+  background: rgba(3, 9, 15, 0.86);
+  outline: none;
+}
+
+.takeoff-field select {
+  color-scheme: dark;
+}
+
+.takeoff-field input:focus,
+.takeoff-field select:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(66, 214, 255, 0.12);
+}
+
+.takeoff-inline-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+  padding: 0 0.7rem;
+  border: 1px dashed var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.takeoff-inline-note strong {
+  color: var(--cyan);
+}
+
+.weather-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.8rem;
+}
+
+.weather-toolbar > span,
+.takeoff-card__note,
+.control-explanation {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.takeoff-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 38px;
+  border: 1px solid var(--line-strong);
+  border-radius: 7px;
+  padding: 0 0.75rem;
+  color: #dff8ff;
+  background: rgba(66, 214, 255, 0.08);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.takeoff-secondary:disabled {
+  opacity: 0.6;
+}
+
+.is-spinning {
+  animation: takeoff-spin 900ms linear infinite;
+}
+
+@keyframes takeoff-spin {
+  to { transform: rotate(360deg); }
+}
+
+.weather-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-top: 0.8rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.weather-meta b {
+  color: #d8e3e8;
+}
+
+.weather-confidence {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 0 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font-size: 0.72rem;
+}
+
+.weather-confidence--high {
+  border-color: rgba(89, 217, 142, 0.44);
+  color: #dfffea;
+  background: rgba(89, 217, 142, 0.08);
+}
+
+.weather-confidence--medium {
+  border-color: rgba(246, 168, 68, 0.48);
+  color: #ffe8c7;
+  background: rgba(246, 168, 68, 0.08);
+}
+
+.weather-confidence--low {
+  border-color: rgba(255, 109, 109, 0.5);
+  color: #ffd7d7;
+  background: rgba(255, 109, 109, 0.08);
+}
+
+.takeoff-location-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.takeoff-location-summary b {
+  color: #d8e3e8;
+}
+
+.takeoff-weather-disclaimer {
+  margin: 0.75rem 0 0;
+  padding: 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.025);
+  font-size: 0.78rem;
+  line-height: 1.55;
+}
+
+.takeoff-warning {
+  margin: 0.65rem 0 0;
+  padding: 0.6rem 0.7rem;
+  border-left: 3px solid var(--orange);
+  color: #ffe8c7;
+  background: rgba(246, 168, 68, 0.08);
+  font-size: 0.8rem;
+}
+
+.takeoff-info,
+.takeoff-status-line {
+  margin: 0.65rem 0 0;
+  padding: 0.6rem 0.7rem;
+  border-left: 3px solid var(--cyan);
+  color: #d8edf5;
+  background: rgba(66, 214, 255, 0.07);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.takeoff-status-line strong {
+  color: var(--text);
+}
+
+.takeoff-empty {
+  padding: 1rem;
+  border: 1px dashed var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  background: rgba(3, 9, 15, 0.34);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.takeoff-card__note,
+.control-explanation {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--line);
+}
+
+.takeoff-calculate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-height: 52px;
+  border: 0;
+  border-radius: 8px;
+  color: #021019;
+  background: linear-gradient(135deg, var(--cyan), #86e6ff);
+  box-shadow: 0 18px 42px rgba(66, 214, 255, 0.2);
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.takeoff-metric {
+  min-width: 0;
+  min-height: 92px;
+  padding: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: rgba(3, 9, 15, 0.58);
+}
+
+.takeoff-metric > span,
+.takeoff-metric small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.74rem;
+}
+
+.takeoff-metric strong {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 1rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.takeoff-metric small {
+  margin-top: 0.3rem;
+}
+
+.takeoff-metric--success {
+  border-color: rgba(89, 217, 142, 0.42);
+}
+
+.takeoff-metric--warning {
+  border-color: rgba(246, 168, 68, 0.48);
+}
+
+.takeoff-metric--risk {
+  border-color: rgba(255, 143, 71, 0.58);
+}
+
+.takeoff-metric--danger {
+  border-color: rgba(255, 109, 109, 0.58);
+  background: rgba(255, 109, 109, 0.08);
+}
+
+.takeoff-metric-grid--single {
+  grid-template-columns: 1fr;
+}
+
+.decision-card {
+  position: relative;
+}
+
+.decision-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--green);
+}
+
+.decision-card--warning::before {
+  background: #f1d35c;
+}
+
+.decision-card--risk::before {
+  background: #ff8f47;
+}
+
+.decision-card--danger::before {
+  background: var(--red);
+}
+
+.decision-card__content {
+  display: grid;
+  gap: 0.55rem;
+  text-align: center;
+}
+
+.decision-card__content > span {
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.decision-card__content strong {
+  font-size: clamp(1.45rem, 3vw, 2.25rem);
+  letter-spacing: 0.02em;
+}
+
+.decision-card__content p {
+  margin: 0;
+}
+
+.decision-note {
+  padding: 0.6rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: #d8edf5;
+  background: rgba(66, 214, 255, 0.06);
+  font-size: 0.8rem;
+}
+
+.decision-note--warning {
+  border-color: rgba(246, 168, 68, 0.46);
+  color: #ffe8c7;
+  background: rgba(246, 168, 68, 0.08);
+}
+
 @media (max-width: 920px) {
   .operation-header,
   .workspace-toolbar,
@@ -621,8 +1053,13 @@ legend {
 
   .category-selector,
   .module-grid,
-  .workspace-grid {
+  .workspace-grid,
+  .takeoff-layout {
     grid-template-columns: 1fr;
+  }
+
+  .takeoff-results {
+    position: static;
   }
 }
 
@@ -666,8 +1103,25 @@ legend {
   }
 
   .form-grid,
-  .result-grid {
+  .result-grid,
+  .takeoff-form-grid,
+  .takeoff-metric-grid,
+  .weather-meta,
+  .takeoff-location-summary {
     grid-template-columns: 1fr;
+  }
+
+  .takeoff-disclaimer {
+    grid-template-columns: auto 1fr;
+  }
+
+  .takeoff-disclaimer span {
+    grid-column: 1 / -1;
+  }
+
+  .weather-toolbar {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .system-footer {

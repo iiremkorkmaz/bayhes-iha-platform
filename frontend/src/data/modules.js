@@ -35,10 +35,10 @@ export const modules = [
   {
     id: 'performance',
     categoryId: 'uav',
-    title: 'Performans Parametreleri',
-    shortTitle: 'Performans',
+    title: 'Kalkış Destek Asistanı',
+    shortTitle: 'Kalkış Asistanı',
     description:
-      'Sabit kanat İHA için kalkış, pist, hız ve temel uçuş performansı analizleri.',
+      'Sabit kanat İHA için meteoroloji, pist, kalkış, abort ve kontrol tavsiyesi karar desteği.',
     status: 'Hazır',
     statusTone: 'ready',
     icon: Gauge,
