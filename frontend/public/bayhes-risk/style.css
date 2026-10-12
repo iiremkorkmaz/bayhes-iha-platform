@@ -323,6 +323,35 @@ textarea:focus {
   grid-column: 1 / -1;
 }
 
+.weather-status {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  min-height: 46px;
+  padding: 12px 14px;
+  color: var(--muted);
+  background: rgba(15, 20, 27, 0.9);
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+
+.weather-status.loading {
+  border-color: rgba(40, 211, 154, 0.45);
+  color: #dffaf1;
+  background: rgba(40, 211, 154, 0.08);
+}
+
+.weather-status.success {
+  border-color: rgba(40, 211, 154, 0.52);
+  color: #dffaf1;
+  background: rgba(40, 211, 154, 0.1);
+}
+
+.weather-status.error {
+  border-color: rgba(255, 107, 107, 0.56);
+  color: #ffc4c4;
+  background: rgba(255, 107, 107, 0.1);
+}
+
 .message-box {
   border: 1px solid var(--line);
   border-radius: 8px;
