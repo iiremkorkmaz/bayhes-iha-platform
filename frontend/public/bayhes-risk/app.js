@@ -14,6 +14,7 @@ const latitudeInput = document.querySelector("#latitude");
 const longitudeInput = document.querySelector("#longitude");
 const provinceInput = document.querySelector("#province");
 const districtInput = document.querySelector("#district");
+const weatherProviderInput = document.querySelector("#weatherProvider");
 const weatherStatus = document.querySelector("#weatherStatus");
 const analysisSummary = document.querySelector("#analysisSummary");
 const calibrationStatus = document.querySelector("#calibrationStatus");
@@ -26,6 +27,7 @@ const recordsList = document.querySelector("#recordsList");
 const recordDetail = document.querySelector("#recordDetail");
 const exportCsvButton = document.querySelector("#exportCsvButton");
 const clearRecordsButton = document.querySelector("#clearRecordsButton");
+const weatherApi = window.BayhesWeatherProviders;
 
 const output = {
   apogee: document.querySelector("#apogeeResult"),
@@ -64,13 +66,17 @@ let weatherRequestToken = 0;
 let currentAnalysis = null;
 let currentValues = null;
 let currentMeanCoordinate = null;
+let currentWeatherSnapshot = null;
+
+function parseNumericInput(value) {
+  return weatherApi.parseLocalizedNumber(value);
+}
 
 function numberValue(id) {
   const element = document.querySelector(`#${id}`);
   if (!element) return null;
 
-  const raw = element.value.trim().replace(",", ".");
-  return raw === "" ? null : Number(raw);
+  return parseNumericInput(element.value);
 }
 
 function textValue(id) {
@@ -150,66 +156,22 @@ function assignNumericField(selector, value, digits = 1) {
   element.value = Number(value).toFixed(digits);
 }
 
-async function fetchWeatherForCoordinates(latitudeValue, longitudeValue) {
-  const latitude = Number(latitudeValue);
-  const longitude = Number(longitudeValue);
+function selectedWeatherProvider() {
+  return weatherApi.getProvider(weatherProviderInput?.value || "open-meteo");
+}
 
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    throw new Error("Geçerli koordinatlar girilmedi.");
-  }
+function formatWeatherTimestamp(value, { utc = false } = {}) {
+  if (!value) return "servis zamanı bildirmedi";
 
-  const params = new URLSearchParams({
-    latitude: String(latitude),
-    longitude: String(longitude),
-    current: [
-      "temperature_2m",
-      "relative_humidity_2m",
-      "pressure_msl",
-      "wind_speed_10m",
-      "wind_direction_10m",
-      "wind_gusts_10m",
-    ].join(","),
-    wind_speed_unit: "ms",
-    timezone: "GMT",
-    forecast_days: "1",
-  });
+  const timestamp = String(value);
+  const normalizedTimestamp = utc && !/(?:Z|[+-]\d{2}:?\d{2})$/i.test(timestamp)
+    ? `${timestamp}Z`
+    : timestamp;
+  const date = new Date(normalizedTimestamp);
 
-  const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`, {
-    headers: { Accept: "application/json" },
-  });
-
-  if (!response.ok) {
-    throw new Error("Canlı meteoroloji verisi alınamadı.");
-  }
-
-  const payload = await response.json();
-  const current = payload?.current;
-  const temperatureC = Number(current?.temperature_2m);
-  const humidityPercent = Number(current?.relative_humidity_2m);
-  const pressureHpa = Number(current?.pressure_msl);
-  const windSpeedMs = Number(current?.wind_speed_10m);
-  const windDirectionDeg = Number(current?.wind_direction_10m);
-  const gustSpeedMs = current?.wind_gusts_10m == null ? null : Number(current.wind_gusts_10m);
-
-  if (
-    !Number.isFinite(temperatureC) ||
-    !Number.isFinite(humidityPercent) ||
-    !Number.isFinite(pressureHpa) ||
-    !Number.isFinite(windSpeedMs) ||
-    !Number.isFinite(windDirectionDeg)
-  ) {
-    throw new Error("Meteoroloji yanıtı eksik veya geçersiz.");
-  }
-
-  return {
-    temperatureC,
-    humidityPercent,
-    pressureHpa,
-    windSpeedMs,
-    windDirectionDeg,
-    gustSpeedMs,
-    observedAt: current?.time ?? null,
-  };
+  if (!Number.isFinite(date.getTime())) return timestamp;
+  return date.toLocaleString("tr-TR", utc ? { timeZone: "UTC" } : undefined)
+    + (utc ? " UTC" : " yerel saat");
 }
 
 async function fetchElevationForCoordinates(latitudeValue, longitudeValue) {
@@ -221,15 +183,7 @@ async function fetchElevationForCoordinates(latitudeValue, longitudeValue) {
   }
 
   const params = new URLSearchParams({ latitude: String(latitude), longitude: String(longitude) });
-  const response = await fetch(`https://api.open-meteo.com/v1/elevation?${params.toString()}`, {
-    headers: { Accept: "application/json" },
-  });
-
-  if (!response.ok) {
-    throw new Error("Rakım verisi alınamadı.");
-  }
-
-  const payload = await response.json();
+  const payload = await weatherApi.requestJson(`https://api.open-meteo.com/v1/elevation?${params.toString()}`);
   const elevationM = Number(payload?.elevation?.[0]);
   if (!Number.isFinite(elevationM)) {
     throw new Error("Rakım yanıtı geçersiz.");
@@ -254,22 +208,17 @@ async function resolveLocationFromCoordinates(latitudeValue, longitudeValue) {
   });
 
   try {
-    const openMeteoResponse = await fetch(
+    const payload = await weatherApi.requestJson(
       `https://geocoding-api.open-meteo.com/v1/reverse?${openMeteoParams.toString()}`,
-      { headers: { Accept: "application/json" } },
     );
-
-    if (openMeteoResponse.ok) {
-      const payload = await openMeteoResponse.json();
-      const match = payload?.results?.[0];
-      if (match) {
-        const province = String(match.admin1 || match.country || "").trim();
-        const district = String(match.admin2 || match.name || match.admin3 || "").trim();
-        return {
-          province: province || "Türkiye",
-          district: district || "Merkez",
-        };
-      }
+    const match = payload?.results?.[0];
+    if (match) {
+      const province = String(match.admin1 || match.country || "").trim();
+      const district = String(match.admin2 || match.name || match.admin3 || "").trim();
+      return {
+        province: province || "Türkiye",
+        district: district || "Merkez",
+      };
     }
   } catch {
     // Open-Meteo reverse geocoding olabilir 404 / devre dışı; sonraki yedeğe geç.
@@ -277,17 +226,7 @@ async function resolveLocationFromCoordinates(latitudeValue, longitudeValue) {
 
   try {
     const bigDataCloudUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${encodeURIComponent(latitude)}&longitude=${encodeURIComponent(longitude)}&localityLanguage=tr`;
-    const bigDataCloudResponse = await fetch(bigDataCloudUrl, {
-      headers: {
-        Accept: "application/json",
-      },
-    });
-
-    if (!bigDataCloudResponse.ok) {
-      return null;
-    }
-
-    const payload = await bigDataCloudResponse.json();
+    const payload = await weatherApi.requestJson(bigDataCloudUrl);
     const province = String(payload?.principalSubdivision || payload?.countryName || "").trim();
     const district = String(payload?.city || payload?.locality || payload?.principalSubdivision || "").trim();
 
@@ -307,55 +246,71 @@ function applyWeatherSnapshot(weatherSnapshot) {
   assignNumericField("#windSpeed", weatherSnapshot.windSpeedMs, 1);
   assignNumericField("#windDirection", weatherSnapshot.windDirectionDeg, 0);
 
-  if (Number.isFinite(Number(weatherSnapshot.gustSpeedMs))) {
-    assignNumericField("#upperWindSpeed", weatherSnapshot.gustSpeedMs, 1);
-    assignNumericField("#upperWindDirection", weatherSnapshot.windDirectionDeg, 0);
-  }
 }
 
-async function refreshWeatherFromCoordinates() {
-  const latitude = numberValue("latitude");
-  const longitude = numberValue("longitude");
+async function refreshWeatherFromCoordinates(
+  latitudeValue = numberValue("latitude"),
+  longitudeValue = numberValue("longitude"),
+) {
+  const provider = selectedWeatherProvider();
+  currentWeatherSnapshot = null;
 
-  if (latitude === null || longitude === null) {
-    setWeatherStatus("Koordinat seçildiğinde canlı meteoroloji verisi çekilecek.", "info");
+  if (latitudeValue === null || longitudeValue === null) {
+    if (provider.name === "MGM") {
+      setWeatherStatus("MGM verisi alınmadı: yetkili sayısal servis/FTP erişimi ve erişim bilgileri bekleniyor.", "error");
+    } else {
+      setWeatherStatus("Koordinat seçildiğinde Open-Meteo verisi çekilecek.", "info");
+    }
+    return;
+  }
+
+  let latitude;
+  let longitude;
+  try {
+    latitude = weatherApi.parseCoordinate(latitudeValue, "Enlem", -90, 90);
+    longitude = weatherApi.parseCoordinate(longitudeValue, "Boylam", -180, 180);
+  } catch (error) {
+    setWeatherStatus(`${provider.name} verisi alınmadı: ${error.message}`, "error");
     return;
   }
 
   const requestId = ++weatherRequestToken;
-  setWeatherStatus("Canlı meteoroloji verisi yükleniyor...", "loading");
+  setWeatherStatus(`${provider.name} verisi yükleniyor...`, "loading");
+  const [weatherResult, locationResult, elevationResult] = await Promise.allSettled([
+    provider.fetchSnapshot({ latitude, longitude }),
+    provider.id === "open-meteo" ? resolveLocationFromCoordinates(latitude, longitude) : Promise.resolve(null),
+    provider.id === "open-meteo" ? fetchElevationForCoordinates(latitude, longitude) : Promise.resolve(null),
+  ]);
 
-  const resolvedLocation = await resolveLocationFromCoordinates(latitude, longitude);
   if (requestId !== weatherRequestToken) return;
 
+  const resolvedLocation = locationResult.status === "fulfilled" ? locationResult.value : null;
   if (resolvedLocation) {
     provinceInput.value = provinceInput.value.trim() || resolvedLocation.province;
     districtInput.value = districtInput.value.trim() || resolvedLocation.district;
   }
 
-  const [weatherResult, elevationResult] = await Promise.allSettled([
-    fetchWeatherForCoordinates(latitude, longitude),
-    fetchElevationForCoordinates(latitude, longitude),
-  ]);
-
-  if (requestId !== weatherRequestToken) return;
-
   if (weatherResult.status === "fulfilled") {
+    currentWeatherSnapshot = weatherResult.value;
     applyWeatherSnapshot(weatherResult.value);
     const selectedProvince = (provinceInput.value || resolvedLocation?.province || "Türkiye").trim();
     const selectedDistrict = (districtInput.value || resolvedLocation?.district || "Merkez").trim();
-    const gustText = Number.isFinite(Number(weatherResult.value.gustSpeedMs))
-      ? `${Number(weatherResult.value.gustSpeedMs).toFixed(1)} m/s`
-      : `${Number(weatherResult.value.windSpeedMs).toFixed(1)} m/s`;
+    const snapshot = weatherResult.value;
+    const validTimeLabel = ({ observation: "Ölçüm zamanı", forecast: "Tahmin zamanı", model: "Model zamanı" })[snapshot.timeKind] || "Veri zamanı";
+    const gustText = snapshot.windGustMs === null ? "bilinmiyor" : `${snapshot.windGustMs.toFixed(1)} m/s`;
     setWeatherStatus(
-      `${selectedProvince} / ${selectedDistrict} • ${weatherResult.value.temperatureC.toFixed(1)}°C • ${weatherResult.value.windSpeedMs.toFixed(1)} m/s • Rüzgâr hamlesi ${gustText}`,
+      `${snapshot.source} • ${selectedProvince} / ${selectedDistrict} • ${snapshot.temperatureC.toFixed(1)}°C • ${snapshot.windSpeedMs.toFixed(1)} m/s • Hamle: ${gustText} • İstasyon: ${snapshot.stationCode || "bilinmiyor"} • ${validTimeLabel}: ${formatWeatherTimestamp(snapshot.validAt, { utc: true })} • Alındı: ${formatWeatherTimestamp(snapshot.retrievedAt)} • Durum: güncel`,
       "success",
     );
   } else {
-    setWeatherStatus("Canlı meteoroloji verisi alınamadı. Manuel değerleri kullanabilirsiniz.", "error");
+    currentWeatherSnapshot = null;
+    setWeatherStatus(
+      `${provider.name} verisi alınamadı: ${weatherResult.reason?.message || "servis yanıtı geçersiz."} Önceki alan değerleri yeni veri olarak güncellenmedi.`,
+      "error",
+    );
   }
 
-  if (elevationResult.status === "fulfilled") {
+  if (elevationResult.status === "fulfilled" && elevationResult.value !== null) {
     const launchAltitudeInput = document.querySelector("#launchAltitude");
     const currentAltitude = numberValue("launchAltitude");
     const altitudeValue = Math.round(elevationResult.value);
@@ -515,6 +470,15 @@ function validateInputs(values) {
   if (!Number.isFinite(values.windDirection) || values.windDirection < 0 || values.windDirection > 360) {
     errors.push("Rüzgâr yönü 0 ile 360 derece arasında olmalıdır.");
   }
+  if (!Number.isFinite(values.temperatureC) || values.temperatureC < -100 || values.temperatureC > 70) {
+    errors.push("Sıcaklık -100 ile 70 °C arasında olmalıdır.");
+  }
+  if (!Number.isFinite(values.pressureHpa) || values.pressureHpa < 300 || values.pressureHpa > 1200) {
+    errors.push("Basınç 300 ile 1200 hPa arasında olmalıdır.");
+  }
+  if (!Number.isFinite(values.humidity) || values.humidity < 0 || values.humidity > 100) {
+    errors.push("Bağıl nem 0 ile 100 arasında olmalıdır.");
+  }
   if (values.descentSpeed !== null && (!Number.isFinite(values.descentSpeed) || values.descentSpeed <= 0)) {
     errors.push("Paraşütlü iniş hızı girilecekse pozitif olmalıdır.");
   }
@@ -540,7 +504,7 @@ function validateInputs(values) {
   if (!Number.isFinite(values.scenarioCount) || values.scenarioCount < 1000) {
     errors.push("Senaryo sayısı en az 1000 olmalıdır.");
   }
-  if (values.manualDensity !== null && values.manualDensity <= 0) {
+  if (values.manualDensity !== null && (!Number.isFinite(values.manualDensity) || values.manualDensity <= 0)) {
     errors.push("Manuel hava yoğunluğu pozitif olmalıdır.");
   }
   if ((values.parachuteDiameter ?? 60) <= 0) {
@@ -1423,9 +1387,7 @@ window.addEventListener("load", () => {
   setTimeout(() => {
     if (map) map.updateSize();
   }, 500);
-  if (numberValue("latitude") !== null && numberValue("longitude") !== null) {
-    refreshWeatherFromCoordinates();
-  }
+  refreshWeatherFromCoordinates(...DEFAULT_MAP_CENTER);
 });
 
 window.addEventListener("resize", () => {
@@ -1439,6 +1401,9 @@ latitudeInput.addEventListener("change", () => {
 });
 longitudeInput.addEventListener("change", () => {
   focusMapFromCoordinateInputs();
+  refreshWeatherFromCoordinates();
+});
+weatherProviderInput.addEventListener("change", () => {
   refreshWeatherFromCoordinates();
 });
 

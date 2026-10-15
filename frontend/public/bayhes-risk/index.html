@@ -113,9 +113,18 @@
           </label>
 
           <label class="wide-field">
-            Canlı meteoroloji durumu
-            <span class="unit">Open-Meteo</span>
-            <div id="weatherStatus" class="weather-status" aria-live="polite">Koordinat seçildiğinde canlı meteoroloji verisi çekilecek.</div>
+            Meteoroloji veri kaynağı
+            <span class="unit">MGM için yetkili sayısal veri erişimi gerekir</span>
+            <select id="weatherProvider" aria-label="Meteoroloji veri kaynağı">
+              <option value="open-meteo" selected>Open-Meteo (mevcut sağlayıcı)</option>
+              <option value="mgm">MGM (yetkili servis/FTP erişimi bekleniyor)</option>
+            </select>
+          </label>
+
+          <label class="wide-field">
+            Meteoroloji veri durumu
+            <span class="unit">Kaynak ve güncelleme bilgisi</span>
+            <div id="weatherStatus" class="weather-status" aria-live="polite">Koordinat seçildiğinde seçili sağlayıcıdan veri çekilecek.</div>
           </label>
 
           <label>            Güvenlik katsayısı
@@ -483,6 +492,7 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/ol@v10.3.1/dist/ol.js"></script>
+  <script src="weatherProviders.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
