@@ -117,9 +117,17 @@
             <span class="unit">MGM için yetkili sayısal veri erişimi gerekir</span>
             <select id="weatherProvider" aria-label="Meteoroloji veri kaynağı">
               <option value="open-meteo" selected>Open-Meteo (mevcut sağlayıcı)</option>
+              <option value="met-norway">MET Norway — tahmin (Locationforecast 2.0)</option>
               <option value="mgm">MGM (yetkili servis/FTP erişimi bekleniyor)</option>
             </select>
           </label>
+
+          <p class="wide-field weather-attribution">
+            Kaynak: <a href="https://api.met.no/weatherapi/locationforecast/2.0/documentation" target="_blank" rel="noopener noreferrer">MET Norway Locationforecast</a>.
+            Lisans: <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a> /
+            <a href="https://data.norge.no/nlod/en/2.0" target="_blank" rel="noopener noreferrer">NLOD 2.0</a>.
+            Değerler tahmindir; MGM istasyon gözlemi değildir. BAYHES Risk sunumu kaynak tahminini dönüştürerek gösterir.
+          </p>
 
           <label class="wide-field">
             Meteoroloji veri durumu
@@ -492,6 +500,11 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/ol@v10.3.1/dist/ol.js"></script>
+  <script>
+    if (!window.BAYHES_API_BASE_URL && ["localhost", "127.0.0.1"].includes(window.location.hostname)) {
+      window.BAYHES_API_BASE_URL = "http://127.0.0.1:8000";
+    }
+  </script>
   <script src="weatherProviders.js"></script>
   <script src="app.js"></script>
 </body>

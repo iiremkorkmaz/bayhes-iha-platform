@@ -174,6 +174,12 @@ function formatWeatherTimestamp(value, { utc = false } = {}) {
     + (utc ? " UTC" : " yerel saat");
 }
 
+function getWeatherProviderApiBase() {
+  if (window.BAYHES_API_BASE_URL) return String(window.BAYHES_API_BASE_URL).replace(/\/$/, "");
+  if (["localhost", "127.0.0.1"].includes(window.location.hostname)) return "http://127.0.0.1:8000";
+  return "";
+}
+
 async function fetchElevationForCoordinates(latitudeValue, longitudeValue) {
   const latitude = Number(latitudeValue);
   const longitude = Number(longitudeValue);
@@ -277,7 +283,11 @@ async function refreshWeatherFromCoordinates(
   const requestId = ++weatherRequestToken;
   setWeatherStatus(`${provider.name} verisi yükleniyor...`, "loading");
   const [weatherResult, locationResult, elevationResult] = await Promise.allSettled([
-    provider.fetchSnapshot({ latitude, longitude }),
+    provider.fetchSnapshot({
+      latitude,
+      longitude,
+      endpoint: provider.id === "met-norway" ? `${getWeatherProviderApiBase()}/api/weather/met-norway` : undefined,
+    }),
     provider.id === "open-meteo" ? resolveLocationFromCoordinates(latitude, longitude) : Promise.resolve(null),
     provider.id === "open-meteo" ? fetchElevationForCoordinates(latitude, longitude) : Promise.resolve(null),
   ]);
@@ -298,8 +308,11 @@ async function refreshWeatherFromCoordinates(
     const snapshot = weatherResult.value;
     const validTimeLabel = ({ observation: "Ölçüm zamanı", forecast: "Tahmin zamanı", model: "Model zamanı" })[snapshot.timeKind] || "Veri zamanı";
     const gustText = snapshot.windGustMs === null ? "bilinmiyor" : `${snapshot.windGustMs.toFixed(1)} m/s`;
+    const modelTimeText = snapshot.modelUpdatedAt
+      ? ` • Model güncellemesi: ${formatWeatherTimestamp(snapshot.modelUpdatedAt, { utc: true })}`
+      : "";
     setWeatherStatus(
-      `${snapshot.source} • ${selectedProvince} / ${selectedDistrict} • ${snapshot.temperatureC.toFixed(1)}°C • ${snapshot.windSpeedMs.toFixed(1)} m/s • Hamle: ${gustText} • İstasyon: ${snapshot.stationCode || "bilinmiyor"} • ${validTimeLabel}: ${formatWeatherTimestamp(snapshot.validAt, { utc: true })} • Alındı: ${formatWeatherTimestamp(snapshot.retrievedAt)} • Durum: güncel`,
+      `${snapshot.source} • ${selectedProvince} / ${selectedDistrict} • ${snapshot.temperatureC.toFixed(1)}°C • ${snapshot.windSpeedMs.toFixed(1)} m/s • Hamle: ${gustText} • İstasyon: ${snapshot.stationCode || "bilinmiyor"} • ${validTimeLabel}: ${formatWeatherTimestamp(snapshot.validAt, { utc: true })}${modelTimeText} • Alındı: ${formatWeatherTimestamp(snapshot.retrievedAt)} • Durum: güncel`,
       "success",
     );
   } else {

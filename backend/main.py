@@ -1,7 +1,19 @@
 import os
+import gzip
+import json
+import re
+import threading
+import time
+from collections import deque
+from datetime import datetime, timezone
+from decimal import Decimal
+from email.utils import parsedate_to_datetime
 from typing import Literal
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException, Query, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
@@ -13,6 +25,105 @@ from sim import SimConfig, simulate_2d
 
 
 load_dotenv()
+
+MET_NORWAY_URL = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
+MET_NORWAY_USER_AGENT = os.getenv(
+    "MET_NORWAY_USER_AGENT",
+    "BAYHES-Risk/1.0 (https://avionixoperasyon.vercel.app)",
+)
+_met_norway_cache: dict[str, dict] = {}
+_met_norway_cache_lock = threading.Lock()
+_met_norway_request_times: deque[float] = deque()
+_met_norway_rate_lock = threading.Lock()
+
+
+def _reserve_met_norway_request() -> None:
+    now = time.monotonic()
+    with _met_norway_rate_lock:
+        while _met_norway_request_times and now - _met_norway_request_times[0] >= 1:
+            _met_norway_request_times.popleft()
+        if len(_met_norway_request_times) >= 19:
+            raise HTTPException(status_code=429, detail="MET Norway için kısa süreli istek sınırı aşıldı; biraz sonra tekrar deneyin.")
+        _met_norway_request_times.append(now)
+
+
+def _cache_expiry(headers, now: float) -> float:
+    cache_control = headers.get("Cache-Control", "")
+    if re.search(r"(?:^|,)\s*(?:no-cache|no-store)\b", cache_control, re.IGNORECASE):
+        return now
+    candidates = []
+    max_age = re.search(r"(?:^|,)\s*max-age=(\d+)", cache_control, re.IGNORECASE)
+    if max_age:
+        age = int(headers.get("Age", "0") or 0)
+        candidates.append(now + max(0, int(max_age.group(1)) - age))
+    expires = headers.get("Expires")
+    if expires:
+        try:
+            candidates.append(parsedate_to_datetime(expires).astimezone(timezone.utc).timestamp())
+        except (TypeError, ValueError, OverflowError):
+            pass
+    return min(candidates, default=now)
+
+
+def fetch_met_norway(latitude: Decimal, longitude: Decimal) -> dict:
+    """Fetch and cache the official forecast response according to its HTTP cache headers."""
+    coordinates = f"{latitude:.4f},{longitude:.4f}"
+    now = time.time()
+    with _met_norway_cache_lock:
+        cached = _met_norway_cache.get(coordinates)
+        if cached and cached["expires_at"] > now:
+            return {"provider": "MET Norway", "retrievedAt": cached["retrieved_at"], "forecast": cached["payload"]}
+
+    _reserve_met_norway_request()
+    query = urlencode({"lat": f"{latitude:.4f}", "lon": f"{longitude:.4f}"})
+    headers = {
+        "User-Agent": MET_NORWAY_USER_AGENT,
+        "Accept": "application/json",
+        "Accept-Encoding": "gzip",
+    }
+    if cached and cached.get("last_modified"):
+        headers["If-Modified-Since"] = cached["last_modified"]
+    request = Request(f"{MET_NORWAY_URL}?{query}", headers=headers)
+
+    try:
+        with urlopen(request, timeout=12) as upstream:
+            raw_body = upstream.read()
+            if upstream.headers.get("Content-Encoding", "").lower() == "gzip":
+                raw_body = gzip.decompress(raw_body)
+            payload = json.loads(raw_body)
+            expires_at = _cache_expiry(upstream.headers, time.time())
+            last_modified = upstream.headers.get("Last-Modified")
+            retrieved_at = datetime.now(timezone.utc).isoformat()
+    except HTTPError as exc:
+        if exc.code == 304 and cached:
+            expires_at = _cache_expiry(exc.headers, time.time())
+            with _met_norway_cache_lock:
+                cached["expires_at"] = expires_at
+                cached["retrieved_at"] = datetime.now(timezone.utc).isoformat()
+            return {"provider": "MET Norway", "retrievedAt": cached["retrieved_at"], "forecast": cached["payload"]}
+        if exc.code == 429:
+            raise HTTPException(status_code=503, detail="MET Norway istek sınırı geçici olarak aşıldı.") from exc
+        raise HTTPException(status_code=502, detail=f"MET Norway servisi HTTP {exc.code} yanıtı verdi.") from exc
+    except (TimeoutError, URLError) as exc:
+        if isinstance(exc, URLError) and isinstance(exc.reason, TimeoutError):
+            raise HTTPException(status_code=504, detail="MET Norway isteği zaman aşımına uğradı.") from exc
+        raise HTTPException(status_code=502, detail="MET Norway servisine bağlanılamadı.") from exc
+    except (json.JSONDecodeError, UnicodeDecodeError, gzip.BadGzipFile) as exc:
+        raise HTTPException(status_code=502, detail="MET Norway geçerli JSON yanıtı döndürmedi.") from exc
+    except OSError as exc:
+        raise HTTPException(status_code=502, detail="MET Norway yanıtı okunamadı.") from exc
+
+    if not isinstance(payload, dict) or not isinstance(payload.get("properties", {}).get("timeseries"), list):
+        raise HTTPException(status_code=502, detail="MET Norway yanıt şeması beklenen tahmin verisini içermiyor.")
+
+    with _met_norway_cache_lock:
+        _met_norway_cache[coordinates] = {
+            "payload": payload,
+            "retrieved_at": retrieved_at,
+            "expires_at": expires_at,
+            "last_modified": last_modified,
+        }
+    return {"provider": "MET Norway", "retrievedAt": retrieved_at, "forecast": payload}
 
 
 class BayhesRequest(BaseModel):
@@ -70,6 +181,16 @@ app.add_middleware(
 @app.get("/api/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "message": "Backend çalışıyor"}
+
+
+@app.get("/api/weather/met-norway")
+def met_norway_weather(
+    latitude: Decimal = Query(..., alias="lat", ge=Decimal("-90"), le=Decimal("90")),
+    longitude: Decimal = Query(..., alias="lon", ge=Decimal("-180"), le=Decimal("180")),
+) -> dict:
+    if max(0, -latitude.as_tuple().exponent) > 4 or max(0, -longitude.as_tuple().exponent) > 4:
+        raise HTTPException(status_code=422, detail="MET Norway isteklerinde koordinatlar en fazla 4 ondalık basamak içerebilir.")
+    return fetch_met_norway(latitude, longitude)
 
 
 @app.get("/favicon.ico", include_in_schema=False)
